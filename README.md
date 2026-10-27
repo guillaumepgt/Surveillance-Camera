@@ -1,181 +1,116 @@
-# 🎥 Surveillance Vidéo avec Sauvegarde Automatique sur Google Drive
+# 🎥 Surveillance Vidéo Intelligente (Caméra -> Google Drive & Email)
 
-Ce projet permet de capturer et sauvegarder automatiquement sur votre **Google Drive** une vidéo de **2 minutes** à chaque fois qu'un mouvement est détecté devant votre caméra :
-- **1 minute AVANT** le déclenchement du mouvement (grâce à un tampon circulaire glissant en mémoire vive).
-- **1 minute APRÈS** le mouvement.
-
----
-
-## ⚡ Caractéristiques principales
-
-- **Tampon circulaire intelligent (Rolling Buffer)** : Conserve en permanence les 60 dernières secondes en mémoire sous forme d'images compressées JPEG (empreinte RAM minime : ~50 Mo pour 1 minute à 20 FPS).
-- **Détection de mouvement précise (MOG2)** : Algorithme de soustraction de fond adaptatif avec filtrage des ombres, flou gaussien et seuil de surface minimale pour éviter les faux positifs (reflets, bruit de capteur).
-- **Encodage vidéo compatible Google Drive** : Génère un fichier MP4 encodé en H.264 (`yuv420p` + `faststart`) directement lisible en streaming dans l'interface web de Google Drive et sur smartphone.
-- **Téléversement non bloquant** : L'encodage et l'envoi vers Google Drive sont gérés dans des threads en arrière-plan, garantissant une surveillance continue sans interruption ni perte d'images.
-- **Deux méthodes d'envoi cloud au choix** :
-  1. **Google Drive API (recommandé)** avec authentification OAuth 2.0 sécurisée.
-  2. **Rclone** (si vous avez déjà un remote Google Drive configuré dans Rclone).
-- **Assistant interactif** (`setup_gdrive.py`) pour tester la connexion Google Drive en 1 clic.
+Système de vidéo-surveillance automatique en Python :
+- Enregistre une vidéo de **2 minutes** à chaque mouvement : **1 minute AVANT** + **1 minute APRÈS** le mouvement.
+- Sauvegarde automatiquement la vidéo sur votre **Google Drive** (dans le dossier `Surveillance_Videos`).
+- Vous envoie un **email d'alerte instantané** avec la **photo du passage** et le **lien direct vers la vidéo**.
 
 ---
 
-## 📂 Structure du projet
+## ⚡ COMMENT LANCER LE PROJET (Démarrage Rapide)
 
-```
-.
-├── config.py             # Paramètres globaux et variables d'environnement
-├── buffer_manager.py     # Gestionnaire de mémoire tampon circulaire (JPEG en RAM)
-├── motion_detector.py    # Détection de mouvement par soustraction de fond (MOG2)
-├── video_writer.py       # Assemblage des frames en MP4 H.264 via FFmpeg
-├── gdrive_uploader.py    # Envoi vers Google Drive API / Rclone en tâche de fond
-├── main.py               # Script principal de surveillance vidéo
-├── setup_gdrive.py       # Assistant interactif de connexion Google Drive
-├── test_system.py        # Suite de tests unitaires et d'intégration
-├── requirements.txt      # Dépendances Python
-├── .env.example          # Modèle de configuration personnalisée
-└── recordings/           # Dossier local de stockage des vidéos générées
-```
-
----
-
-## 🚀 Installation rapide
-
-Un environnement virtuel `venv` avec toutes les dépendances est déjà prêt dans ce dossier.
-
-Si vous souhaitez le réinstaller ou l'installer ailleurs :
-
+### 1. Lancer la surveillance avec affichage en direct :
 ```bash
-# 1. Créer l'environnement virtuel
-python3 -m venv venv
-source venv/bin/activate
-
-# 2. Installer les dépendances
-pip install -r requirements.txt
+./venv/bin/python3 main.py --preview
 ```
+*(Une fenêtre s'ouvre avec le flux vidéo et les rectangles verts de détection. Appuyez sur la touche `q` pour quitter).*
 
-> **Note :** Le système utilise `/usr/bin/ffmpeg` pour l'encodage MP4 H.264 (déjà installé sur votre machine).
-
----
-
-## 🔑 Configuration de Google Drive (en 5 minutes)
-
-Pour envoyer les vidéos vers votre compte Google Drive via l'API officielle :
-
-### Étape 1 : Obtenir vos identifiants Google (`credentials.json`)
-
-1. Rendez-vous sur la [Console Google Cloud](https://console.cloud.google.com/).
-2. Créez un nouveau projet (ex: `Surveillance-Camera`).
-3. Activez l'API Google Drive :
-   - Allez dans **API et services** > **Bibliothèque**.
-   - Recherchez **Google Drive API** et cliquez sur **Activer**.
-4. Configurez l'écran de consentement OAuth :
-   - Allez dans **API et services** > **Écran de consentement OAuth**.
-   - Choisissez le type **Externe**, renseignez un nom et votre adresse email.
-   - Dans la section **Utilisateurs test** (Test users), ajoutez impérativement votre adresse Gmail.
-5. Générez les identifiants :
-   - Allez dans **API et services** > **Identifiants**.
-   - Cliquez sur **Créer des identifiants** > **ID client OAuth**.
-   - Type d'application : **Application pour ordinateur de bureau** (Desktop application).
-   - Téléchargez le fichier JSON résultant.
-6. Renommez ce fichier en `credentials.json` et déposez-le à la racine de ce projet.
-
-### Étape 2 : Valider l'authentification avec l'assistant
-
-Lancez simplement la commande :
-
-```bash
-./venv/bin/python3 setup_gdrive.py
-```
-
-- Une page s'ouvrira dans votre navigateur web pour vous demander d'autoriser l'application.
-- Un jeton sécurisé `token.json` sera généré automatiquement.
-- L'assistant créera le dossier `Surveillance_Videos` sur votre Google Drive et y déposera un fichier de test.
-
----
-
-## 🎬 Démarrer la surveillance
-
-### Lancement standard
-
+### 2. Lancer la surveillance en arrière-plan (sans fenêtre) :
 ```bash
 ./venv/bin/python3 main.py
 ```
 
-Le script démarre avec la webcam par défaut (`/dev/video0`), maintient les 60 secondes précédentes en mémoire, et dès qu'un mouvement est détecté, enregistre les 60 secondes suivantes avant d'envoyer la vidéo de 2 minutes sur Google Drive.
-
-### Avec prévisualisation en direct à l'écran
-
-Pour afficher une fenêtre en direct avec les rectangles de mouvement et les FPS :
-
-```bash
-./venv/bin/python3 main.py --preview
-```
-*(Appuyez sur `q` pour fermer proprement la fenêtre et arrêter le script).*
-
-### Options courantes
-
-| Option | Description | Valeur par défaut |
-|---|---|---|
-| `--camera` | Index de la webcam (`0`, `1`) ou URL RTSP de caméra IP | `0` |
-| `--preview` | Ouvre une fenêtre affichant le flux vidéo et les détections | Désactivé |
-| `--pre-duration` | Durée du tampon avant mouvement (en secondes) | `60.0` |
-| `--post-duration` | Durée d'enregistrement après mouvement (en secondes) | `60.0` |
-| `--min-area` | Sensibilité : surface minimale en pixels pour déclencher | `1500` |
-| `--uploader` | Méthode d'envoi (`gdrive_api`, `rclone`, ou `none`) | `gdrive_api` |
-| `--no-upload` | Mode local uniquement (aucun envoi cloud) | `False` |
-| `--no-keep-local` | Supprime la copie locale après téléversement réussi | `False` (garde copie) |
-| `--no-overlay` | Ne pas incruster l'heure et l'état sur la vidéo | `False` |
-| `--fps` | Fréquence d'images cible | `20` |
-
-### Exemples d'utilisation :
-
-**1. Tester sans envoyer sur le cloud (enregistrement local uniquement) :**
+### 3. Tester localement (sans envoyer sur Google Drive ni envoyer d'email) :
 ```bash
 ./venv/bin/python3 main.py --no-upload --preview
 ```
 
-**2. Utiliser une caméra IP (flux RTSP) :**
+---
+
+## 💻 INSTALLATION SUR UN NOUVEL ORDINATEUR
+
+Si vous changez d'ordinateur ou clonez ce projet ailleurs, suivez ces 4 étapes simples :
+
+### Étape 1 : Cloner le dépôt GitHub
 ```bash
-./venv/bin/python3 main.py --camera "rtsp://admin:motdepasse@192.168.1.50:554/stream"
+git clone https://github.com/guillaumepgt/Surveillance-Camera.git
+cd Surveillance-Camera
 ```
 
-**3. Ajuster la sensibilité :**
-- Si le script détecte trop de mouvements parasites (arbres, reflets) : augmenter `--min-area 3000`
-- Si le script ne détecte pas les mouvements discrets : baisser `--min-area 800`
+### Étape 2 : Créer et installer l'environnement virtuel
+```bash
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+```
+*(Assurez-vous que `ffmpeg` est installé sur le système : `sudo apt install ffmpeg` sur Ubuntu/Debian).*
+
+### Étape 3 : Récupérer vos fichiers de configuration
+Placez vos 3 fichiers secrets à la racine du dossier `Surveillance-Camera/` :
+1. **`.env`** (vos réglages et mot de passe d'application Gmail)
+2. **`credentials.json`** (vos identifiants Google Cloud)
+3. **`token.json`** (votre jeton Google Drive déjà validé)
+
+*(Si vous n'avez pas de sauvegarde de ces 3 fichiers, copiez `.env.example` en `.env` : `cp .env.example .env` et lancez `./venv/bin/python3 setup_gdrive.py`).*
+
+### Étape 4 : Lancer !
+```bash
+./venv/bin/python3 main.py --preview
+```
 
 ---
 
-## ⚙️ Configuration permanente via `.env`
+## 🧪 VÉRIFIER QUE TOUT FONCTIONNE
 
-Vous pouvez personnaliser les valeurs par défaut en copiant le fichier `.env.example` :
+Des scripts de test indépendants sont inclus pour tout tester en 1 commande :
 
-```bash
-cp .env.example .env
-```
+- **Tester la caméra et l'encodage vidéo (test complet) :**
+  ```bash
+  ./venv/bin/python3 test_system.py
+  ```
 
-Vous pouvez y définir :
-- Le nom du dossier Google Drive (`GDRIVE_FOLDER_NAME=Surveillance_Videos`)
-- La source de caméra par défaut (`CAMERA_SOURCE=0` ou flux RTSP)
-- La suppression automatique des vidéos locales après upload (`KEEP_LOCAL_COPY=false`)
-- Les durées de tampon (`PRE_BUFFER_SECONDS=60.0`, `POST_BUFFER_SECONDS=60.0`)
+- **Tester la connexion Google Drive :**
+  ```bash
+  ./venv/bin/python3 setup_gdrive.py
+  ```
+
+- **Tester l'envoi d'email d'alerte avec photo :**
+  ```bash
+  ./venv/bin/python3 test_email.py
+  ```
 
 ---
 
-## 📧 Alertes par Email (avec photo et lien Google Drive)
+## 🛠️ OPTIONS DE LANCEMENT DISPONIBLES
 
-Le système peut vous envoyer un email instantané à chaque détection avec :
-- L'heure exacte de l'intrusion.
-- La photo JPEG prise au moment précis du déclenchement.
-- Un bouton direct pour regarder la vidéo de 2 minutes sur Google Drive.
+Vous pouvez personnaliser le comportement en ligne de commande :
 
-### Configuration rapide :
+| Option | Description | Exemple |
+|---|---|---|
+| `--preview` | Ouvre une fenêtre avec l'image en direct et les détections | `./venv/bin/python3 main.py --preview` |
+| `--camera` | Choisir la caméra (0 pour webcam, ou URL RTSP de caméra IP) | `--camera "rtsp://192.168.1.50:554/stream"` |
+| `--min-area` | Sensibilité : surface minimale en pixels pour déclencher (défaut : 3500) | `--min-area 5000` (moins sensible) |
+| `--cooldown` | Délai de repos en secondes après un événement avant réarmement | `--cooldown 60` (attend 60s) |
+| `--pre-duration` | Durée enregistrée avant le mouvement (défaut : 60s) | `--pre-duration 60` |
+| `--post-duration` | Durée enregistrée après le mouvement (défaut : 60s) | `--post-duration 60` |
+| `--no-upload` | Désactive l'envoi sur Google Drive (sauvegarde locale uniquement) | `--no-upload` |
+| `--no-keep-local` | Supprime la vidéo du PC une fois envoyée sur Google Drive | `--no-keep-local` |
 
-1. Générez un **Mot de passe d'application** pour votre compte Gmail :
-   - Rendez-vous sur : [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-   - Donnez-lui un nom (ex: `CameraSurveillance`) et cliquez sur **Créer**.
-   - Notez le mot de passe de 16 lettres généré.
+---
 
-2. Éditez le fichier `.env` :
+## 🔑 CONFIGURATION INITIALE DÉTAILLÉE
+
+### 1. Google Drive (OAuth2)
+1. Allez sur la [Console Google Cloud](https://console.cloud.google.com/).
+2. Créez un projet et activez l'**API Google Drive** dans *API et services > Bibliothèque*.
+3. Dans *Écran de consentement OAuth*, configurez en type **Externe** et ajoutez votre adresse Gmail dans **Utilisateurs test**.
+4. Dans *Identifiants*, créez un **ID client OAuth** (Application pour ordinateur de bureau).
+5. Téléchargez le JSON, renommez-le `credentials.json` et déposez-le dans le dossier du projet.
+6. Lancez `./venv/bin/python3 setup_gdrive.py` pour valider l'accès.
+
+### 2. Alertes par Email (Gmail)
+1. Rendez-vous sur [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+2. Créez un mot de passe d'application nommé `CameraSurveillance`.
+3. Renseignez-le dans votre fichier `.env` :
    ```env
    ENABLE_EMAIL_ALERTS=true
    SMTP_SERVER=smtp.gmail.com
@@ -184,19 +119,25 @@ Le système peut vous envoyer un email instantané à chaque détection avec :
    SMTP_PASSWORD=abcd efgh ijkl mnop
    EMAIL_TO=votre.email@gmail.com
    ```
-
-3. Testez l'envoi d'un email de vérification :
-   ```bash
-   ./venv/bin/python3 test_email.py
-   ```
+4. Testez avec `./venv/bin/python3 test_email.py`.
 
 ---
 
-## 🧪 Lancer la suite de tests
+## 📂 STRUCTURE DES FICHIERS
 
-Pour vérifier le bon fonctionnement du tampon mémoire, de la détection de mouvement et du moteur d'encodage vidéo :
-
-```bash
-./venv/bin/python3 test_system.py
 ```
-
+Surveillance-Camera/
+├── main.py               # Programme principal de surveillance
+├── config.py             # Configuration globale et lecture du .env
+├── buffer_manager.py     # Tampon circulaire glissant en mémoire vive (JPEG en RAM)
+├── motion_detector.py    # Détection de mouvement par soustraction de fond (MOG2)
+├── video_writer.py       # Génération des vidéos MP4 H.264 optimisées (FFmpeg)
+├── gdrive_uploader.py    # Téléversement en tâche de fond sur Google Drive
+├── email_notifier.py     # Envoi des alertes email avec photo et lien
+├── setup_gdrive.py       # Assistant interactif Google Drive
+├── test_email.py         # Test d'envoi d'email
+├── test_system.py        # Suite de tests automatiques
+├── requirements.txt      # Dépendances Python
+├── .env.example          # Modèle de configuration
+└── recordings/           # Dossier local des vidéos enregistrées
+```
