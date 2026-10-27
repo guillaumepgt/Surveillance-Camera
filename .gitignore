@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Google Drive credentials & tokens
+credentials.json
+token.json
+
+# Local recordings
+recordings/*.mp4
+test_gdrive_sync.txt
