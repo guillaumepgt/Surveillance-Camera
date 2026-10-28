@@ -30,7 +30,7 @@ def test_frame_buffer():
 
 def test_motion_detector():
     print("Testing MotionDetector...")
-    detector = MotionDetector(min_area=500, var_threshold=25)
+    detector = MotionDetector(min_area=500, max_area_ratio=0.50, var_threshold=25)
     bg_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
     # Train background model on static frames
@@ -38,14 +38,20 @@ def test_motion_detector():
         detector.detect(bg_frame)
 
     # Static frame should have no motion
-    is_motion, bboxes, _ = detector.detect(bg_frame)
-    assert not is_motion, "Static frame should not trigger motion!"
+    is_motion, bboxes, _, is_light = detector.detect(bg_frame)
+    assert not is_motion and not is_light, "Static frame should not trigger motion!"
 
-    # Introduce large moving white rectangle
-    motion_frame = bg_frame.copy()
+    # Test lighting change (global illumination shift: 80% of image changes)
+    light_frame = np.full((480, 640, 3), 150, dtype=np.uint8)
+    is_motion_l, _, _, is_light = detector.detect(light_frame)
+    assert not is_motion_l and is_light, "Lighting shift should be flagged as lighting change and ignored!"
+    print("✓ Lighting change successfully filtered out")
+
+    # Introduce local moving white rectangle
+    motion_frame = light_frame.copy()
     cv2.rectangle(motion_frame, (100, 100), (300, 300), (255, 255, 255), -1)
-    is_motion, bboxes, max_area = detector.detect(motion_frame)
-    assert is_motion, "Motion frame should trigger motion!"
+    is_motion, bboxes, max_area, is_light2 = detector.detect(motion_frame)
+    assert is_motion and not is_light2, "Moving object should trigger motion!"
     assert len(bboxes) > 0, "Should have detected at least one bounding box"
     print(f"✓ MotionDetector OK (detected area: {max_area:.0f} px)")
 

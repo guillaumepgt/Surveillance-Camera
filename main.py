@@ -89,10 +89,12 @@ class SurveillanceCamera:
         self.event_pre_frames: List[Tuple[float, bytes, bool]] = []
         self.event_post_frames: List[Tuple[float, bytes, bool]] = []
 
-        # Motion detector
+        # Motion detector with illumination change filtering
         self.detector = MotionDetector(
             min_area=self.min_area,
+            max_area_ratio=config.MAX_MOTION_RATIO,
             var_threshold=config.MOTION_VAR_THRESHOLD,
+            lighting_delta_threshold=config.LIGHTING_DELTA_THRESHOLD,
         )
 
         # Email notifier
@@ -235,8 +237,8 @@ class SurveillanceCamera:
                     frame_count = 0
                     fps_calc_time = now
 
-                # Motion detection
-                is_motion, bboxes, max_area = self.detector.detect(frame)
+                # Motion detection with illumination filtering
+                is_motion, bboxes, max_area, is_lighting_change = self.detector.detect(frame)
 
                 # Warmup check: ignore triggers during initial stabilization seconds
                 in_warmup = (now - start_time) < config.MOTION_WARMUP_SECONDS
@@ -244,8 +246,13 @@ class SurveillanceCamera:
                 # Always keep the circular pre-buffer populated with the latest frames
                 self.pre_buffer.add_frame(frame, timestamp=now, is_motion=is_motion)
 
+                # If a sudden lighting change is detected, reset motion counter and calm timer
+                if is_lighting_change:
+                    self.consecutive_motion_frames = 0
+                    self.calm_start_time = 0.0
+
                 # Track consecutive motion frames to avoid single-frame noise
-                if is_motion:
+                if is_motion and not is_lighting_change:
                     self.consecutive_motion_frames += 1
                 else:
                     self.consecutive_motion_frames = 0
@@ -348,7 +355,10 @@ class SurveillanceCamera:
                         cv2.rectangle(preview_frame, (x, y), (x + bw, y + bh), (0, 255, 0), 2)
 
                     # Top status overlay banner
-                    if in_warmup:
+                    if is_lighting_change:
+                        status_str = "VARIATION DE LUMINOSITE DETECTEE (IGNORE)"
+                        color = (0, 165, 255)
+                    elif in_warmup:
                         status_str = f"STABILISATION INITIALE ({int(config.MOTION_WARMUP_SECONDS - (now - start_time))}s)"
                         color = (0, 165, 255)
                     elif not buffer_ready:

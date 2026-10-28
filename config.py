@@ -53,6 +53,10 @@ COOLDOWN_SECONDS = float(os.getenv("COOLDOWN_SECONDS", "30.0"))
 MOTION_WARMUP_SECONDS = float(os.getenv("MOTION_WARMUP_SECONDS", "5.0"))
 # Require pre-buffer to be nearly full (~50s) before first trigger to guarantee a full 1 min before
 REQUIRE_FULL_BUFFER = _get_bool("REQUIRE_FULL_BUFFER", True)
+# Maximum ratio of frame allowed to change (above this, e.g. 50%, it's treated as a lighting change)
+MAX_MOTION_RATIO = float(os.getenv("MAX_MOTION_RATIO", "0.50"))
+# Sudden jump in average frame brightness indicating a light switch or flash
+LIGHTING_DELTA_THRESHOLD = float(os.getenv("LIGHTING_DELTA_THRESHOLD", "12.0"))
 
 # ==========================================
 # Storage and Overlay Settings

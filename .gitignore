@@ -12,3 +12,4 @@ token.json
 # Local recordings
 recordings/*.mp4
 test_gdrive_sync.txt
+*.zip
